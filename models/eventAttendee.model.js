@@ -53,7 +53,7 @@ const eventAttendee = new mongoose.Schema(
     attendance: {
       type: String,
       enum: ["present", "absent"],
-      default: "Absent",
+      default: "absent",
     },
   },
   { timestamps: true },
@@ -61,7 +61,7 @@ const eventAttendee = new mongoose.Schema(
 
 //  Correct unique rule
 eventAttendee.index(
-  { email: 1, name: 1, phone: 1, event: 1, paystackReference: 1 },
+  { email: 1, name: 1, phone: 1, event: 1, reference: 1 },
   { unique: true },
 );
 

@@ -43,35 +43,35 @@ const eventSchema = new mongoose.Schema(
           `${props.value} is not a valid time format (HH:MM)!`,
       },
     },
-    ticketTypes: {
-      type: [
-        {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "TicketType",
-        },
-      ],
-      required: true,
-      validate: {
-        validator: function (val) {
-          // must be an array and not empty
-          if (!Array.isArray(val) || val.length === 0) return false;
+    // ticketTypes: {
+    //   type: [
+    //     {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "TicketType",
+    //     },
+    //   ],
+    //   required: true,
+    //   validate: {
+    //     validator: function (val) {
+    //       // must be an array and not empty
+    //       if (!Array.isArray(val) || val.length === 0) return false;
 
-          // check all are valid ObjectIds
-          const allValid = val.every((id) =>
-            mongoose.Types.ObjectId.isValid(id),
-          );
+    //       // check all are valid ObjectIds
+    //       const allValid = val.every((id) =>
+    //         mongoose.Types.ObjectId.isValid(id),
+    //       );
 
-          if (!allValid) return false;
+    //       if (!allValid) return false;
 
-          // remove duplicates by converting to string
-          const uniqueIds = new Set(val.map((id) => id.toString()));
+    //       // remove duplicates by converting to string
+    //       const uniqueIds = new Set(val.map((id) => id.toString()));
 
-          return uniqueIds.size === val.length;
-        },
-        message:
-          "Ticket types must contain valid ObjectIds, no duplicates, and at least one value",
-      },
-    },
+    //       return uniqueIds.size === val.length;
+    //     },
+    //     message:
+    //       "Ticket types must contain valid ObjectIds, no duplicates, and at least one value",
+    //   },
+    // },
   },
   { timestamps: true },
 );

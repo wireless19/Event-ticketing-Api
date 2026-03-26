@@ -12,7 +12,7 @@ export const createEvent = async (req, res) => {
       startDate,
       endDate,
       openingTime,
-      ticketTypes,
+      // ticketTypes,
     } = req.body;
 
     // Check for duplicate event name (optional, but good for clarity) ---
@@ -100,7 +100,7 @@ export const createEvent = async (req, res) => {
       startDate,
       endDate,
       openingTime,
-      ticketTypes,
+      // ticketTypes,
     });
 
     res.status(201).json({
@@ -118,7 +118,7 @@ export const createEvent = async (req, res) => {
 // Read all events
 export const getEvents = async (req, res) => {
   try {
-    const events = await Event.find().populate("ticketTypes");
+    const events = await Event.find();
     res.status(200).json(events);
   } catch (error) {
     res.status(500).json({

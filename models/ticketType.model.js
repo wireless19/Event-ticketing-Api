@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const ticketTypeSchema = new mongoose.Schema(
   {
-   name: {
+    name: {
       type: String,
       required: [true, "Ticket type name is required"],
       trim: true,
@@ -18,8 +18,19 @@ const ticketTypeSchema = new mongoose.Schema(
       type: String,
       default: "NGN",
     },
+    event: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+      required: true,
+    },
   },
   { timestamps: true },
+);
+
+// prevent duplicates per event
+ticketTypeSchema.index(
+  { name: 1, price: 1, event: 1 },
+  { unique: true }
 );
 
 export const TicketType = mongoose.model("TicketType", ticketTypeSchema);

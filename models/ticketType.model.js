@@ -12,10 +12,7 @@ const ticketTypeSchema = new mongoose.Schema(
     price: {
       type: Number,
       required: [true, "Ticket type price is required"],
-      unique: true,
-      trim: true,
-      lowercase: true,
-      match: [/\S+@\S+\.\S+/, "Please fill a valid email address"],
+      min: [0, "Price must be positive"],
     },
     currency: {
       type: String,

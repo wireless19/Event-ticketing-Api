@@ -264,9 +264,9 @@ export const verifyEventAttendeePayment = async (req, res) => {
   }
 };
 
-export const updateEventAttendeeStatus = async (req, res) => {
+export const markEventAttendance = async (req, res) => {
   try {
-    const { status, event_id } = req.body;
+    const { attendance, event_id } = req.body;
 
     //Check valid user ID
     if (!mongoose.Types.ObjectId.isValid(req.params.attendee_id)) {
@@ -276,17 +276,13 @@ export const updateEventAttendeeStatus = async (req, res) => {
       });
     }
 
-    // Check if attendee status is paid
-    const eventAttendeeStatus = await EventAttendee.findById(
-      req.params.attendee_id,
-    );
-    if (
-      eventAttendeeStatus.status === "paid" &&
-      eventAttendeeStatus.event._id.toString() === event_id
-    ) {
-      return res.status(404).json({
+    //check event date
+    const eventDate = await Event.findById(event_id);
+
+    if (eventDate.startDate !== new Date()) {
+      return res.status(400).json({
         success: false,
-        message: "Status is paid already",
+        message: "You can only mark attendance on the day of the Event",
       });
     }
 
@@ -297,14 +293,14 @@ export const updateEventAttendeeStatus = async (req, res) => {
       },
       {
         $set: {
-          status: status,
+          attendance: attendance === 1 ? "Present" : "Absent",
         },
       },
       {
         new: true, // return updated document
         runValidators: true, // apply schema validation
       },
-    );
+    ).populate("event", "name");
 
     if (!eventAttendee)
       return res.status(404).json({
@@ -312,7 +308,7 @@ export const updateEventAttendeeStatus = async (req, res) => {
       });
 
     res.status(200).json({
-      message: "Payment status updated successfully",
+      message: `${eventAttendee.name} is marked as ${attendance === 1 ? "present" : "absent"} for ${eventAttendee.event.name}`,
     });
   } catch (error) {
     res.status(500).json({

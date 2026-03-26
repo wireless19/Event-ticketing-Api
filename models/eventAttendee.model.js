@@ -25,6 +25,11 @@ const eventAttendee = new mongoose.Schema(
         "Please enter a valid phone number",
       ],
     },
+    paymentMethod: {
+      type: String,
+      enum: ["online", "offline"],
+      default: "online",
+    },
     ticketType: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TicketType",
@@ -41,7 +46,7 @@ const eventAttendee = new mongoose.Schema(
       required: true,
       index: true, //optimizing the queries by indexing the user field
     },
-    paystackReference: {
+    reference: {
       type: String, // Paystack transaction reference
       sparse: true, // Allow null values for non-paid bookings without violating unique constraint
     },

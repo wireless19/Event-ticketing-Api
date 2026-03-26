@@ -10,8 +10,8 @@ import { verifyToken } from "../middleware/verifyToken.js";
 const eventRoutes = express.Router();
 
 eventRoutes.get("/", getEvents);
-eventRoutes.get("/:id", verifyToken, getEvent);
+eventRoutes.get("/:event_id", verifyToken, getEvent);
 eventRoutes.post("/", verifyToken, createEvent);
-eventRoutes.patch("/update-event/:id", verifyToken, updateEvent);
+eventRoutes.patch("/update-event/:event_id", verifyToken, updateEvent);
 
 export default eventRoutes;

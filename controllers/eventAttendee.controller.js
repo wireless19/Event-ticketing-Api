@@ -51,7 +51,7 @@ export const getRegisteredAttendeesForAnEvent = async (req, res, next) => {
 
 export const registerEventAttendee = async (req, res) => {
   try {
-    const { name, email, phone, ticketType } = req.body;
+    const { name, email, phone, ticketType, payment_method } = req.body;
 
     //Check valid event ID
     if (!mongoose.Types.ObjectId.isValid(req.params.event_id)) {
@@ -94,7 +94,51 @@ export const registerEventAttendee = async (req, res) => {
       });
     }
 
-    // Create a new booking in the database with 'pending' status
+    const attendeeTicketType = await TicketType.findById(ticketType);
+
+    // Register an attendee in the database for offline payment(the admin will handle this in the dashboard for users who wants to make transfer or pay cash)
+    if (payment_method === "offline") {
+      // generate unique reference for this transaction
+      const reference = crypto.randomUUID();
+
+      await EventAttendee.create({
+        name,
+        email,
+        phone,
+        paymentMethod: "offline",
+        ticketType,
+        status: "paid",
+        event: event._id,
+        reference,
+      });
+
+      return res.status(201).json({
+        message: `Registration successful for ${event.name}`,
+      });
+    }
+
+    // Register an attendee in the database for online payment and ticket type is free
+    if (ticketTypeExist && attendeeTicketType.price === 0) {
+      // generate unique reference for this transaction
+      const reference = crypto.randomUUID();
+
+      await EventAttendee.create({
+        name,
+        email,
+        phone,
+        paymentMethod: "online",
+        ticketType,
+        status: "paid",
+        event: event._id,
+        reference,
+      });
+
+      return res.status(201).json({
+        message: `Registration successful for ${event.name}`,
+      });
+    }
+
+    // Register an attendee in the database for online payment with 'pending' status which is by default
     const newBooking = await EventAttendee.create({
       name,
       email,
@@ -102,8 +146,6 @@ export const registerEventAttendee = async (req, res) => {
       ticketType,
       event: event._id,
     });
-
-    const attendeeTicketType = await TicketType.findById(ticketType);
 
     //make payment
     const paystackData = {
@@ -128,9 +170,6 @@ export const registerEventAttendee = async (req, res) => {
       },
     );
 
-    // generate your own unique reference for this transaction, but i'm currently using paystack's reference
-    // const reference = `booking_${Date.now()}`;
-
     // Update the booking with the Paystack authorization URL and reference
     // Using findOneAndUpdate to update without fetching and then saving
     await EventAttendee.findOneAndUpdate(
@@ -140,7 +179,7 @@ export const registerEventAttendee = async (req, res) => {
       },
       {
         $set: {
-          paystackReference: paystackResponse.data.data.reference, // Set the Paystack reference
+          reference: paystackResponse.data.data.reference, // Set the Paystack reference
         },
       },
       {
@@ -154,12 +193,6 @@ export const registerEventAttendee = async (req, res) => {
       message: "Payment initialized", // Success message
       authorization_url: paystackResponse.data.data.authorization_url, // URL to redirect user for payment
     });
-
-    //send receipt email to attendee----->registration successful, to confirm your reservation please make your payment to the account below
-
-    // res.status(201).json({
-    //   message: `Registration successful for ${event.name}`,
-    // });
   } catch (error) {
     console.error(
       "Error initializing payment:",
@@ -169,11 +202,6 @@ export const registerEventAttendee = async (req, res) => {
       message: "Payment initialization failed", // Error message for the client
       error: error.response ? error.response.data : error.message, // Include error details
     });
-
-    // res.status(500).json({
-    //   message: "Internal Server error",
-    //   error: error.message,
-    // });
   }
 };
 

@@ -13,7 +13,7 @@ const eventSchema = new mongoose.Schema(
     description: {
       type: String,
       required: [true, "description is required"],
-
+      unique: true,
       trim: true,
       lowercase: true,
     },
@@ -23,10 +23,12 @@ const eventSchema = new mongoose.Schema(
     },
     startDate: {
       type: Date,
+      unique: true,
       required: [true, "Start date is required"],
     },
     endDate: {
       type: Date,
+      unique: true,
     },
     openingTime: {
       type: String, // Stored as a string (e.g., "09:00")
@@ -48,20 +50,20 @@ const eventSchema = new mongoose.Schema(
           ref: "TicketType",
         },
       ],
-      // required: true,
+      required: true,
       validate: {
         validator: function (val) {
-          // ✅ must be an array and not empty
+          // must be an array and not empty
           if (!Array.isArray(val) || val.length === 0) return false;
 
-          // ✅ check all are valid ObjectIds
+          // check all are valid ObjectIds
           const allValid = val.every((id) =>
             mongoose.Types.ObjectId.isValid(id),
           );
 
           if (!allValid) return false;
 
-          // ✅ remove duplicates by converting to string
+          // remove duplicates by converting to string
           const uniqueIds = new Set(val.map((id) => id.toString()));
 
           return uniqueIds.size === val.length;

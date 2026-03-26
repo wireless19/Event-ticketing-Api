@@ -32,7 +32,7 @@ const eventAttendee = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "paid"],
+      enum: ["pending", "paid", "failed"],
       default: "pending",
     },
     event: {
@@ -41,13 +41,17 @@ const eventAttendee = new mongoose.Schema(
       required: true,
       index: true, //optimizing the queries by indexing the user field
     },
+    paystackReference: {
+      type: String, // Paystack transaction reference
+      sparse: true, // Allow null values for non-paid bookings without violating unique constraint
+    },
   },
   { timestamps: true },
 );
 
 //  Correct unique rule
 eventAttendee.index(
-  { email: 1, name: 1, phone: 1, event: 1 },
+  { email: 1, name: 1, phone: 1, event: 1, paystackReference: 1 },
   { unique: true },
 );
 

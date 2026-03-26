@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
+import axios from "axios";
+import crypto from "crypto";
+
 import { EventAttendee } from "../models/eventAttendee.model.js";
 import { Event } from "../models/event.model.js";
-// import { TicketType } from "../models/ticketType.model.js";
+import { TicketType } from "../models/ticketType.model.js";
 
 // Get Registered Attendees For An Event
 export const getRegisteredAttendeesForAnEvent = async (req, res, next) => {
@@ -91,7 +94,8 @@ export const registerEventAttendee = async (req, res) => {
       });
     }
 
-    await EventAttendee.create({
+    // Create a new booking in the database with 'pending' status
+    const newBooking = await EventAttendee.create({
       name,
       email,
       phone,
@@ -99,16 +103,136 @@ export const registerEventAttendee = async (req, res) => {
       event: event._id,
     });
 
+    const attendeeTicketType = await TicketType.findById(ticketType);
+
+    //make payment
+    const paystackData = {
+      email: email, // Customer's email for Paystack
+      amount: attendeeTicketType.price * 100, // Paystack expects amount in kobo (multiply by 100)
+      callback_url: process.env.PAYSTACK_CALLBACK_URL, // URL Paystack redirects to after payment
+      metadata: {
+        booking_id: newBooking._id.toString(), // Pass booking ID as metadata for later verification
+        // You can add other relevant metadata here
+      },
+    };
+
+    // Call Paystack API to initialize the transaction
+    const paystackResponse = await axios.post(
+      `${process.env.PAYSTACK_API_URL}/transaction/initialize`, // Paystack initialize endpoint
+      paystackData, // Data to send to Paystack
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, // Use your Paystack secret key
+          "Content-Type": "application/json", // Specify content type
+        },
+      },
+    );
+
+    // generate your own unique reference for this transaction, but i'm currently using paystack's reference
+    // const reference = `booking_${Date.now()}`;
+
+    // Update the booking with the Paystack authorization URL and reference
+    // Using findOneAndUpdate to update without fetching and then saving
+    await EventAttendee.findOneAndUpdate(
+      {
+        _id: newBooking._id, // attendee id
+        event: { _id: event._id }, // event id
+      },
+      {
+        $set: {
+          paystackReference: paystackResponse.data.data.reference, // Set the Paystack reference
+        },
+      },
+      {
+        new: true, // return updated document
+        runValidators: true, // apply schema validation
+      },
+    );
+
+    // 5. Send the authorization URL back to the client
+    res.status(200).json({
+      message: "Payment initialized", // Success message
+      authorization_url: paystackResponse.data.data.authorization_url, // URL to redirect user for payment
+    });
+
     //send receipt email to attendee----->registration successful, to confirm your reservation please make your payment to the account below
 
-    res.status(201).json({
-      message: `Registration successful for ${event.name}`,
-    });
+    // res.status(201).json({
+    //   message: `Registration successful for ${event.name}`,
+    // });
   } catch (error) {
+    console.error(
+      "Error initializing payment:",
+      error.response ? error.response.data : error.message,
+    ); // Log detailed error
     res.status(500).json({
-      message: "Internal Server error",
-      error: error.message,
+      message: "Payment initialization failed", // Error message for the client
+      error: error.response ? error.response.data : error.message, // Include error details
     });
+
+    // res.status(500).json({
+    //   message: "Internal Server error",
+    //   error: error.message,
+    // });
+  }
+};
+
+export const verifyEventAttendeePayment = async (req, res) => {
+  try {
+    // 1. Verify Paystack webhook signature
+    // Get the Paystack signature from the request headers
+    // const paystackSignature = req.headers["x-paystack-signature"];
+
+    // Create a hash of the request body using your Paystack secret key
+    // const hash = crypto
+    //   .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY)
+    //   .update(JSON.stringify(req.body))
+    //   .digest("hex");
+
+    // Compare the generated hash with the signature from Paystack
+    // if (hash !== paystackSignature) {
+    //   // If signatures do not match, it's an invalid request
+    //   return res.status(400).send("Webhook signature verification failed");
+    // }
+
+    // check if the params are correct
+    if (req.params.id !== process.env.GENERATED_IDS) {
+      // If signatures do not match, it's an invalid request
+      return res.status(400).send("Webhook signature verification failed");
+    }
+
+    // 2. Process the webhook event
+    const event = req.body; // The entire event object from Paystack
+
+    // Check if the event is a successful transaction
+    if (event.event === "charge.success") {
+      const paystackReference = event.data.reference; // Get the transaction reference
+      const bookingId = event.data.metadata.booking_id; // Retrieve booking ID from metadata
+
+      // 3. Update the booking status in the database
+      // Using findOneAndUpdate to find by bookingId and update its status
+      const updatedBooking = await EventAttendee.findOneAndUpdate(
+        { _id: bookingId, paystackReference: paystackReference }, // Find booking by ID and Paystack reference
+        { status: "paid" }, // Set the status to 'paid'
+        { new: true, runValidators: true }, // Return the updated document and run schema validators
+      );
+
+      if (!updatedBooking) {
+        // If booking not found or reference doesn't match, log an error
+        console.error(
+          `Booking not found or reference mismatch for ID: ${bookingId}, Reference: ${paystackReference}`,
+        );
+        return res.status(404).send("Booking not found or reference mismatch");
+      }
+
+      console.log(`Booking ${updatedBooking._id} status updated to paid.`); // Log successful update
+    }
+
+    // 4. Acknowledge receipt of the webhook event
+    res.status(200).send("Webhook received and processed");
+  } catch (error) {
+    console.error("Error processing Paystack webhook:", error);
+    res.status(500).send("Internal Server Error");
   }
 };
 

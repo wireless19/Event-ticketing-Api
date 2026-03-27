@@ -26,24 +26,38 @@ export const getRegisteredAttendeesForAnEvent = async (req, res, next) => {
       });
     }
 
+    const page = parseInt(req.query.page) - 1 || 0;
+    const limit = parseInt(req.query.limit) || 1; //total number of data per page
+    const email = req.query.email || "";
+    const name = req.query.name || "";
+    const reference = req.query.reference || "";
+
     // Fetch attendees
     const registeredAttendeesForAnEvent = await EventAttendee.find({
       event: req.params.event_id,
+      name: { $regex: name, $options: "i" },
+      email: { $regex: email, $options: "i" },
+      reference: { $regex: reference, $options: "i" },
     })
       .populate("event", "name")
-      .populate("ticketType", "name price");
+      .populate("ticketType", "name price")
+      .skip(page * limit)
+      .limit(limit);
 
-    // Check if no attendees
-    if (registeredAttendeesForAnEvent.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Attendees not found",
-      });
-    }
+    const total = await EventAttendee.countDocuments({
+      name: { $regex: name, $options: "i" },
+      email: { $regex: email, $options: "i" },
+      reference: { $regex: reference, $options: "i" },
+    });
 
-    res
-      .status(200)
-      .json({ success: true, data: registeredAttendeesForAnEvent });
+    const response = {
+      total,
+      page: page + 1,
+      limit,
+      data: registeredAttendeesForAnEvent,
+    };
+
+    res.status(200).json({ success: true, data: response });
   } catch (error) {
     next(error);
   }

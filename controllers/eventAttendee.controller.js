@@ -6,6 +6,8 @@ import { EventAttendee } from "../models/eventAttendee.model.js";
 import { Event } from "../models/event.model.js";
 import { TicketType } from "../models/ticketType.model.js";
 
+import { sendEventPaymentReceiptEmail } from "../utils/sendEmail.js";
+
 // Get Registered Attendees For An Event
 export const getRegisteredAttendeesForAnEvent = async (req, res, next) => {
   try {
@@ -159,6 +161,22 @@ export const registerEventAttendee = async (req, res) => {
         attendance: days,
       });
 
+      await sendEventPaymentReceiptEmail(
+        name,
+        email,
+        event.name,
+        "paid",
+        generateTransactionRef(),
+        event.startDate,
+        event.endDate,
+        event.openingTime,
+        event.location,
+        event.address,
+        payment_method,
+        attendeeTicketType.name,
+        attendeeTicketType.price,
+      );
+
       return res.status(201).json({
         message: `Registration successful for ${event.name}`,
       });
@@ -179,6 +197,22 @@ export const registerEventAttendee = async (req, res) => {
         reference: generateTransactionRef(),
         attendance: days,
       });
+
+      await sendEventPaymentReceiptEmail(
+        name,
+        email,
+        event.name,
+        "paid",
+        generateTransactionRef(),
+        event.startDate,
+        event.endDate,
+        event.openingTime,
+        event.location,
+        event.address,
+        payment_method,
+        attendeeTicketType.name,
+        attendeeTicketType.price,
+      );
 
       return res.status(201).json({
         message: `Registration successful for ${event.name}`,
@@ -292,7 +326,12 @@ export const verifyEventAttendeePayment = async (req, res) => {
         { _id: bookingId, reference }, // Find booking by ID and Paystack reference
         { status: "paid" }, // Set the status to 'paid'
         { new: true, runValidators: true }, // Return the updated document and run schema validators
-      );
+      )
+        .populate(
+          "event",
+          "name startDate endDate openingTime location address",
+        )
+        .populate("ticketType", "name price");
 
       if (!updatedBooking) {
         // If booking not found or reference doesn't match, log an error
@@ -301,7 +340,21 @@ export const verifyEventAttendeePayment = async (req, res) => {
         );
         return res.status(404).send("Booking not found or reference mismatch");
       }
-
+      await sendEventPaymentReceiptEmail(
+        updatedBooking.name,
+        updatedBooking.email,
+        updatedBooking.event.name,
+        updatedBooking.status,
+        updatedBooking.reference,
+        updatedBooking.event.startDate,
+        updatedBooking.event.endDate,
+        updatedBooking.event.openingTime,
+        updatedBooking.event.location,
+        updatedBooking.event.address,
+        updatedBooking.paymentMethod,
+        updatedBooking.ticketType.name,
+        updatedBooking.ticketType.price,
+      );
       console.log(`Booking ${updatedBooking._id} status updated to paid.`); // Log successful update
     }
 

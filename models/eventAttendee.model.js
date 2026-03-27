@@ -50,11 +50,25 @@ const eventAttendee = new mongoose.Schema(
       type: String, // Paystack transaction reference
       sparse: true, // Allow null values for non-paid bookings without violating unique constraint
     },
-    attendance: {
-      type: String,
-      enum: ["present", "absent"],
-      default: "absent",
-    },
+    // attendance for multiple days
+    attendance: [
+      {
+        date: {
+          type: Date,
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ["present", "absent"],
+          default: "absent",
+        },
+      },
+    ],
+    // attendance: {
+    //   type: String,
+    //   enum: ["present", "absent"],
+    //   default: "absent",
+    // },
   },
   { timestamps: true },
 );

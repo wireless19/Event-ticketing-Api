@@ -5,17 +5,10 @@ import { Event } from "../models/event.model.js";
 // Create a event
 export const createEvent = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      location,
-      startDate,
-      endDate,
-      openingTime,
-      // ticketTypes,
-    } = req.body;
+    const { name, description, location, address, startDate, endDate, openingTime } =
+      req.body;
 
-    // Check for duplicate event name (optional, but good for clarity) ---
+    // Check for duplicate event name (optional, but good for clarity)
     const existingEventByName = await Event.findOne({ name });
     if (existingEventByName) {
       return res.status(400).json({
@@ -97,6 +90,7 @@ export const createEvent = async (req, res) => {
       name,
       description,
       location,
+      address,
       startDate,
       endDate,
       openingTime,
@@ -159,6 +153,7 @@ export const updateEvent = async (req, res) => {
         message: "Invalid event ID",
       });
     }
+
     const event = await Event.findByIdAndUpdate(req.params.event_id, req.body, {
       new: true,
     });

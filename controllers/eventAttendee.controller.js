@@ -100,6 +100,19 @@ export const registerEventAttendee = async (req, res) => {
       });
     }
 
+    //generate all event days
+    const days = [];
+    let current = new Date(event.startDate);
+
+    while (current <= event.endDate) {
+      days.push({
+        date: new Date(current),
+        status: "absent",
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
     // generate unique reference for each transaction
     const generateTransactionRef = () => {
       const length = 10;
@@ -129,6 +142,7 @@ export const registerEventAttendee = async (req, res) => {
         status: "paid",
         event: event._id,
         reference: generateTransactionRef(),
+        attendance: days,
       });
 
       return res.status(201).json({
@@ -149,6 +163,7 @@ export const registerEventAttendee = async (req, res) => {
         status: "paid",
         event: event._id,
         reference: generateTransactionRef(),
+        attendance: days,
       });
 
       return res.status(201).json({
@@ -163,6 +178,7 @@ export const registerEventAttendee = async (req, res) => {
       phone,
       ticketType: attendeeTicketType._id,
       event: event._id,
+      attendance: days,
     });
 
     //make payment
@@ -298,26 +314,78 @@ export const markEventAttendance = async (req, res) => {
     //check event date
     const eventDate = await Event.findById(event_id);
 
-    if (eventDate.startDate !== new Date()) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(eventDate.startDate);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(eventDate.endDate);
+    end.setHours(0, 0, 0, 0);
+
+    if (today < start || today > end) {
       return res.status(400).json({
-        success: false,
-        message: "You can only mark attendance on the day of the Event",
+        message: "Attendance can only be marked during event days",
       });
     }
 
+    // current date + time
+    const now = new Date();
+
+    // combine startDate + openingTime
+    const [hours, minutes] = eventDate.openingTime.split(":");
+
+    const eventStartDateTime = new Date(eventDate.startDate);
+    eventStartDateTime.setHours(hours, minutes, 0, 0);
+
+    // combine endDate (optional: end of day)
+    const eventEndDateTime = new Date(eventDate.endDate);
+    eventEndDateTime.setHours(23, 59, 59, 999);
+
+    // ❌ before event starts
+    if (now < eventStartDateTime) {
+      return res.status(400).json({
+        message: "Attendance can only be marked after the event starts",
+      });
+    }
+
+    // ❌ after event ends
+    if (now > eventEndDateTime) {
+      return res.status(400).json({
+        message: "Event has ended",
+      });
+    }
+
+    // const eventAttendee = await EventAttendee.findOneAndUpdate(
+    //   {
+    //     _id: req.params.attendee_id, // attendee id
+    //     event: { _id: event_id }, // event id
+    //   },
+    //   {
+    //     $set: {
+    //       attendance: attendance === 1 ? "present" : "absent",
+    //     },
+    //   },
+    //   {
+    //     new: true, // return updated document
+    //     runValidators: true, // apply schema validation
+    //   },
+    // ).populate("event", "name");
+
+    // update only today's attendance
     const eventAttendee = await EventAttendee.findOneAndUpdate(
       {
-        _id: req.params.attendee_id, // attendee id
-        event: { _id: event_id }, // event id
+        _id: req.params.attendee_id,
+        event: event_id,
+        "attendance.date": today, // match today's date
       },
       {
         $set: {
-          attendance: attendance === 1 ? "present" : "absent",
+          "attendance.$.status": attendance === 1 ? "present" : "absent", // update matched day
         },
       },
       {
-        new: true, // return updated document
-        runValidators: true, // apply schema validation
+        new: true,
       },
     ).populate("event", "name");
 

@@ -12,14 +12,18 @@ const eventSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: [true, "description is required"],
+      required: [true, "Description is required"],
       unique: true,
       trim: true,
       lowercase: true,
     },
     location: {
       type: String,
-      required: [true, "location is required"],
+      required: [true, "Location is required"],
+    },
+    address: {
+      type: String,
+      required: [true, "Address is required"],
     },
     startDate: {
       type: Date,
